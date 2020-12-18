@@ -1,9 +1,12 @@
 {
-    "engine": {
-        "zh_cmn": {
-            "model_checkpoint": "/app/engine/zh_cmn/model",
+    "zh_cmn": {
+        "engine_lm": {
+            "model_checkpoint": "/app/zh_cmn/lm",
             "temperature": 0.9,
             "top_p": 0.9
+        },
+        "engine_dict": {
+            "dict_path": "/app/zh_cmn/dict"
         }
     }
 }
