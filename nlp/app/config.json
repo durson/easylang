@@ -1,0 +1,9 @@
+{
+    "engine": {
+        "zh_cmn": {
+            "model_checkpoint": "/app/engine/zh_cmn/model",
+            "temperature": 0.9,
+            "top_p": 0.9
+        }
+    }
+}

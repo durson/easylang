@@ -1,0 +1,7 @@
+uvloop==0.14.0
+uvicorn==0.12.1
+gunicorn==20.0.4
+fastapi==0.61.1
+httptools==0.1.1
+transformers==2.1.1
+orjson==3.4.6
