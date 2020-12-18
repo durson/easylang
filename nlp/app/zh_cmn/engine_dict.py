@@ -17,9 +17,17 @@ class ZhCmnEngineDict:
         d = {}
         v = {}
         for entry in dict_json:
-            d[entry["simplified"]] = entry
+            key = entry["simplified"]
+            if key in d:
+                d[key].append(entry)
+            else:
+                d[key] = [entry]
         for entry in vocab_json:
-            v[entry["simplified"]] = entry
+            key = entry["simplified"]
+            if key in v:
+                v[key].append(entry)
+            else:
+                v[key] = [entry]
 
         self.d = d
         self.v = v
