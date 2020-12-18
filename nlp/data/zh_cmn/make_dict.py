@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from math import log, exp
 import sys
 import orjson as json
 
@@ -27,7 +28,7 @@ def parse_line(line):
     return parsed
 
 
-def get_vocab(cedict):
+def get_vocab(cedict, counts):
     vocab_parsed = {}
     vocab = {}
     for parsed in cedict:
@@ -40,17 +41,19 @@ def get_vocab(cedict):
 
     def retrieve_char_or_dummy(char):
         if char in vocab_parsed:
-            return vocab_parsed[char]
+            parsed = vocab_parsed[char]
         else:
             english = f"Letter {char}"
             if char in list("0123456789"):
                 english = f"Number {char}"
-            return {
+            parsed = {
                 "traditional": char,
                 "simplified": char,
                 "pinyin": char,
-                "english": english
+                "english": english,
             }
+        parsed["count"] = counts.get(char, -99.0)
+        return parsed
 
     return list(map(retrieve_char_or_dummy, vocab))
 
@@ -63,8 +66,8 @@ def filter_surnames(cedict):
 
 
 def main(argv):
-    if len(argv) != 3:
-        raise ValueError("Usage: cedict-path output-dir")
+    if len(argv) != 4:
+        raise ValueError("Usage: cedict words-count output-dir")
 
     cedict_path = Path(argv[1])
     if not cedict_path.exists():
@@ -79,18 +82,33 @@ def main(argv):
                 cedict.append(parsed)
     filter_surnames(cedict)
 
-    output_dir = Path(argv[2])
+    counts_path = Path(argv[2])
+    if not counts_path.exists():
+        raise RuntimeError(f"{counts_path} does not exist.")
+
+    counts = {}
+    total_count = 0
+    with open(counts_path, "r") as fp:
+        for line in fp:
+            line = line.rstrip("\n")
+            _, word, _, count = map(lambda s: s[1:-1], line.split(","))
+            if len(word) > 1:
+                continue
+            count = int(count)
+            counts[word] = count
+            total_count += count
+    for key in counts:
+        counts[key] = log(max(counts[key] / total_count, exp(-99.0)))
+
+    output_dir = Path(argv[3])
     if not output_dir.exists():
         output_dir.mkdir(exist_ok=True)
 
-    vocab = get_vocab(cedict)
+    vocab = get_vocab(cedict, counts)
     with open(output_dir.joinpath("vocab.json"), "w") as fp:
         fp.write(json.dumps(vocab).decode())
     with open(output_dir.joinpath("dict.json"), "w") as fp:
         fp.write(json.dumps(cedict).decode())
-    return cedict
 
 
-parsed_dict = main(sys.argv)
-
-print("\n".join(map(str, parsed_dict)))
+main(sys.argv)
