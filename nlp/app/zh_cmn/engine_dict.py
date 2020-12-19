@@ -50,3 +50,11 @@ class ZhCmnEngineDict:
                     start = end
                     break
         return output
+
+
+    def get_count(self, char):
+        if char in self.v:
+            return self.v[char][0]["count"]
+        else:
+            print("[" + char + "]")
+            return -99.0

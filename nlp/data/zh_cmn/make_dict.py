@@ -34,28 +34,36 @@ def get_vocab(cedict, counts):
     for parsed in cedict:
         chars = list(parsed["simplified"])
         if len(chars) == 1:
-            vocab_parsed[chars[0]] = parsed
+            char = chars[0]
+            if char in vocab_parsed:
+                vocab_parsed[char].append(parsed)
+            else:
+                vocab_parsed[char] = [parsed]
         for char in chars:
             vocab[char] = 1
     vocab = sorted(vocab.keys())
 
     def retrieve_char_or_dummy(char):
         if char in vocab_parsed:
-            parsed = vocab_parsed[char]
+            parsed_arr = vocab_parsed[char]
         else:
             english = f"Letter {char}"
             if char in list("0123456789"):
                 english = f"Number {char}"
-            parsed = {
+            parsed_arr = [{
                 "traditional": char,
                 "simplified": char,
                 "pinyin": char,
                 "english": english,
-            }
-        parsed["count"] = counts.get(char, -99.0)
-        return parsed
+            }]
+        for parsed in parsed_arr:
+            parsed["count"] = counts.get(char, -99.0)
+        return parsed_arr
 
-    return list(map(retrieve_char_or_dummy, vocab))
+    vocab_out = []
+    for char in vocab:
+        vocab_out += retrieve_char_or_dummy(char)
+    return vocab_out
 
 
 def filter_surnames(cedict):

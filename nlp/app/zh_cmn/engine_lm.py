@@ -3,6 +3,7 @@
 from transformers import OpenAIGPTLMHeadModel, BertTokenizer
 from itertools import chain
 import re
+import numpy as np
 import torch
 import torch.nn.functional as F
 
@@ -15,7 +16,7 @@ class StateEntry:
 
 
 class ZhCmnEngineLm:
-    def __init__(self, cfg):
+    def __init__(self, cfg, engine_dict):
         seed = 1234
         torch.random.manual_seed(seed)
         torch.cuda.manual_seed(seed)
@@ -24,16 +25,27 @@ class ZhCmnEngineLm:
         tokenizer = BertTokenizer.from_pretrained(model_checkpoint, do_lower_case=True)
         model = OpenAIGPTLMHeadModel.from_pretrained(model_checkpoint)
         device = "cuda"
+        special_tokens = ["[CLS]", "[SEP]", "[PAD]", "[speaker1]", "[speaker2]"]
         model.to(device)
         model.eval()
+
+        count_np = np.empty([len(tokenizer)])
+        for char in tokenizer.vocab:
+            i = tokenizer.vocab[char]
+            if char in special_tokens:
+                count_np[i] = 0.0
+            else:
+                count_np[i] = engine_dict.get_count(char)
+        count_tensor = torch.tensor(count_np, dtype=torch.float, device=device)
 
         self.tokenizer = tokenizer
         self.model = model
         self.device = device
         self.state = {}
-        self.special_tokens = ["[CLS]", "[SEP]", "[PAD]", "[speaker1]", "[speaker2]"]
+        self.special_tokens = special_tokens
         self.temperature = cfg[iso()]["engine_lm"]["temperature"]
         self.top_p = cfg[iso()]["engine_lm"]["top_p"]
+        self.count_tensor = count_tensor
 
         test = [
             "你好",
@@ -90,8 +102,13 @@ class ZhCmnEngineLm:
 
         indices_to_remove = logits < threshold
         logits[indices_to_remove] = filter_value
-
         return logits
+
+
+    def vocab_filtering(self, logits, threshold, filter_value=-float('Inf')):
+        assert logits.dim() == 1  # Only work for batch size 1 for now - could update but it would obfuscate a bit the code
+        filter_tensor = filter_value * torch.ones_like(logits, dtype=torch.float)
+        return torch.where(self.count_tensor >= threshold, logits, filter_tensor)
 
 
     def sample(self, state):
@@ -108,6 +125,7 @@ class ZhCmnEngineLm:
 
                 logits, *_ = self.model(input_ids, token_type_ids=token_type_ids)
                 logits = logits[0, -1, :] / self.temperature
+                logits = self.vocab_filtering(logits, -8.0)
                 logits = self.top_filtering(logits, self.top_p)
                 probs = F.softmax(logits, dim=-1)
 
